@@ -22,10 +22,6 @@ Widget::~Widget()
     delete ui;
 }
 
-void Widget::showEvent(QShowEvent *event) {
-    //timer->start();
-}
-
 void Widget::onPushButtonClicked() {
     if (timer->isActive()) {
         timer->stop();
@@ -37,8 +33,9 @@ void Widget::onPushButtonClicked() {
     } else {
         timer->setInterval(ui->lineEditSpeed->text().toInt());
         timer->start();
-        ui->widget->canvas->setRule(
-            ui->lineEditDeathLow->text().toInt(), ui->lineEditDeathUp->text().toInt(), ui->lineEditBirth->text().toInt());
+        ui->widget->setCanvasRule(ui->lineEditDeathLow->text().toInt(),
+                                  ui->lineEditDeathUp->text().toInt(),
+                                  ui->lineEditBirth->text().toInt());
         ui->pushButton->setText("Stop");
         ui->lineEditDeathLow->setEnabled(false);
         ui->lineEditDeathUp->setEnabled(false);
@@ -106,50 +103,75 @@ void Canvas::clear() {
 // mywidget
 
 MyWidget::MyWidget(QWidget *parent): QWidget(parent) {
-    cellInWidth = 50;
+    setMouseTracking(false);
+    setCellNum(10);
     canvas = new Canvas(1000, 1000);
 }
 
+void MyWidget::cellInitialize() {
+    cellSide = (this->size().width() + cellInWidth) / cellInWidth;
+    cellInHeight = this->size().width() / cellSide;
+    startX = (canvas->getWidth() - this->size().width() / cellSide) / 2;
+    startY = (canvas->getHeight() - this->size().height() / cellSide) / 2;
+}
+
 void MyWidget::paintEvent(QPaintEvent *event) {
+    // painter initialization. Assign device
     QPainter* painter = new QPainter();
     painter->begin(this);
-    // qDebug() << "paint event called";
+
+    // get canvas size. Draw background
     int wWidth = this->size().width();
     int wHeight = this->size().height();
     painter->setBrush(QBrush(Qt::white, Qt::BrushStyle::SolidPattern));
     painter->drawRect(0, 0, wWidth, wHeight);
 
-    int cellWidth = int(wWidth / double(cellInWidth));
-    int cellInHeight = int(wHeight / cellWidth);
+    // initialize cell nums, and draw canvas
     painter->setBrush(QBrush(Qt::black, Qt::BrushStyle::SolidPattern));
     for (int i = 0; i <= cellInWidth; i++) {
-        painter->drawLine(i * cellWidth, 0, i * cellWidth, wHeight);
+        painter->drawLine(i * cellSide, 0, i * cellSide, wHeight);
     }
     for (int i = 0; i <= cellInHeight; i++) {
-        painter->drawLine(0, i * cellWidth, wWidth, i * cellWidth);
+        painter->drawLine(0, i * cellSide, wWidth, i * cellSide);
     }
-    int startX = (canvas->width - cellInWidth) / 2;
-    int startY = (canvas->height - cellInHeight) / 2;
+
+    // draw cells
     for (int i = startX; i < startX + cellInWidth; i++) {
         for (int j = startY; j < startY + cellInHeight; j++) {
-            if (canvas->tile[i][j]) {
-                painter->drawRect(cellWidth * (i - startX), cellWidth * (j - startY), cellWidth, cellWidth);
+            if (canvas->get(i, j)) {
+                painter->drawRect(cellSide * (i - startX), cellSide * (j - startY), cellSide, cellSide);
             }
         }
     }
 }
 
-void MyWidget::mousePressEvent(QMouseEvent *event) {
-    int wWidth = this->size().width();
-    int wHeight = this->size().height();
-    int cellWidth = int(wWidth / double(cellInWidth));
-    int cellInHeight = int(wHeight / cellWidth);
-    int startX = (canvas->width - cellInWidth) / 2;
-    int startY = (canvas->height - cellInHeight) / 2;
+void MyWidget::mouseMoveEvent(QMouseEvent *event) {
     int mouseX = event->x();
     int mouseY = event->y();
-    canvas->set(mouseX / cellWidth + startX, mouseY / cellWidth + startY);
+    canvas->set(mouseX / cellSide + startX, mouseY / cellSide + startY);
     update();
+}
+
+void MyWidget::mousePressEvent(QMouseEvent *event) {
+    int mouseX = event->x();
+    int mouseY = event->y();
+    canvas->set(mouseX / cellSide + startX, mouseY / cellSide + startY);
+    update();
+}
+
+void MyWidget::resizeEvent(QResizeEvent *event) {
+    cellInitialize();
+    update();
+}
+
+void MyWidget::wheelEvent(QWheelEvent *event) {
+    int wheelNum = event->delta() / 60;
+    int tempNum = getCellNum() * (10.0 - wheelNum) / 10.0;
+    if (tempNum < canvas->getWidth() && tempNum >= 2) {
+        setCellNum(tempNum);
+        cellInitialize();
+        update();
+    }
 }
 
 void MyWidget::onTimerTimeout() {

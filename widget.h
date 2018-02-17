@@ -6,6 +6,7 @@
 #include <QShowEvent>
 #include <QPaintEvent>
 #include <QMouseEvent>
+#include <QWheelEvent>
 
 namespace Ui {
 class Widget;
@@ -25,15 +26,10 @@ public:
 private:
     Ui::Widget *ui;
     QTimer* timer;
-    //MyWidget* mywidget;
-
-protected:
-    virtual void showEvent(QShowEvent* event);
 
 public slots:
     void onPushButtonClicked();
 };
-
 
 class Canvas {
     friend MyWidget;
@@ -44,6 +40,25 @@ public:
         rule.deathUp = 4;
         rule.birth = 3;
     }
+    void initialize();
+    void calculate();
+    void set(int x, int y);
+    int get(int x, int y) {
+        return tile[x][y];
+    }
+    int getWidth() {
+        return width;
+    }
+    int getHeight() {
+        return height;
+    }
+    void setRule(int dl, int du, int b) {
+        rule.deathLow = dl;
+        rule.deathUp = du;
+        rule.birth = b;
+    }
+    void clear();
+
 private:
     char** tile;
     char** newTile;
@@ -54,31 +69,32 @@ private:
         int deathUp;
         int birth;
     } rule;
-
-public:
-    void initialize();
-    //void calculate(int x, int y, int width, int height);
-    void calculate();
-    void set(int x, int y);
-    void setRule(int dl, int du, int b) {
-        rule.deathLow = dl;
-        rule.deathUp = du;
-        rule.birth = b;
-    }
-    void clear();
 };
 
 class MyWidget : public QWidget
 {
     Q_OBJECT
 
-    friend Widget;
 private:
-    int cellInWidth;
+    int cellInWidth;    // number of cell in width
+    int cellInHeight;
+    int cellSide;  // cell side length
+    int startX; // beginning cell index
+    int startY;
+    void cellInitialize();
     Canvas* canvas;
 
 public:
     explicit MyWidget(QWidget *parent = 0);
+    void setCanvasRule(int dl, int du, int b) {
+        canvas->setRule(dl, du, b);
+    }
+    void setCellNum(int ciw) {
+        cellInWidth = ciw;
+    }
+    int getCellNum() {
+        return cellInWidth;
+    }
 
 private slots:
     void onTimerTimeout();
@@ -86,7 +102,10 @@ private slots:
 
 protected:
     virtual void paintEvent(QPaintEvent* event);
+    virtual void mouseMoveEvent(QMouseEvent* event);
     virtual void mousePressEvent(QMouseEvent* event);
+    virtual void resizeEvent(QResizeEvent *event);
+    virtual void wheelEvent(QWheelEvent *event);
 };
 
 #endif // WIDGET_H
