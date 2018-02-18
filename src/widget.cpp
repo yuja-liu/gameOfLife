@@ -127,7 +127,7 @@ void Canvas::load(QDataStream &in) {
 
 MyWidget::MyWidget(QWidget *parent): QWidget(parent) {
     setMouseTracking(false);
-    setCellNum(10);
+    setCellNum(20);
     canvas = new Canvas(1000, 1000);
 }
 
@@ -237,5 +237,6 @@ void MyWidget::onLoad() {
         return;
     } else {
         canvas->load(in);
+        update();
     }
 }
