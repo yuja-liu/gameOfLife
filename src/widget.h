@@ -27,19 +27,21 @@ public:
 private:
     Ui::Widget *ui;
     QTimer* timer;
+    QString* ruleSetName;
+    QString* ruleSetSur;
+    QString* ruleSetBor;
 
-public slots:
+private slots:
     void onPushButtonClicked();
+    void onRuleChanged();
 };
 
 class Canvas {
-    friend MyWidget;
 public:
     Canvas(int w, int l):width(w), height(l) {
         initialize();
-        rule.deathLow = 1;
-        rule.deathUp = 4;
-        rule.birth = 3;
+        rule.survive = new int[9]{2, 3, -1};
+        rule.born = new int[9]{3, -1};
     }
     void initialize();
     void calculate();
@@ -53,14 +55,11 @@ public:
     int getHeight() {
         return height;
     }
-    void setRule(int dl, int du, int b) {
-        rule.deathLow = dl;
-        rule.deathUp = du;
-        rule.birth = b;
-    }
+    void setRule (int* sur, int* bir);
     void clear();
     void save(QDataStream& out);
     void load(QDataStream& in);
+    int* findBoundary();
 
 private:
     char** tile;
@@ -68,10 +67,11 @@ private:
     int width;
     int height;
     struct Rule {
-        int deathLow;
-        int deathUp;
-        int birth;
+        int* survive;
+        int* born;
     } rule;
+    bool isSurvive(int neighbor);
+    bool isBorn(int neighbor);
 };
 
 class MyWidget : public QWidget
@@ -89,15 +89,14 @@ private:
 
 public:
     explicit MyWidget(QWidget *parent = 0);
-    void setCanvasRule(int dl, int du, int b) {
-        canvas->setRule(dl, du, b);
-    }
+    void setCanvasRule(const QString& surStr, const QString& borStr);
     void setCellNum(int ciw) {
         cellInWidth = ciw;
     }
     int getCellNum() {
         return cellInWidth;
     }
+    QString ruleShow;
 
 private slots:
     void onTimerTimeout();

@@ -2,9 +2,6 @@
 
 ## Proposing features
 
-- Scalable canvas area
-- support custom rules
-- record canvas (save and load)
 - a faster computing speed
 - enhanced GUI
 
@@ -12,3 +9,5 @@
 
 - Scalable canvas area
 - set cells by drag mouse
+- record canvas (save and load)
+- - support custom rules (include highlife, etc)
