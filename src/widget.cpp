@@ -15,31 +15,42 @@ Widget::Widget(QWidget *parent) :
     timer = new QTimer();
     timer->setInterval(200);
     const int RULE_SET_LENGTH = 12;
-    ruleSetName = new QString[RULE_SET_LENGTH]{"Life", "Replicator",
+    ruleSetName = new QString[RULE_SET_LENGTH + 1]{"Life", "Replicator",
             "Seeds", "B25/S4", "Inkspot", "34Life",
             "Diamoeba", "2x2", "HighLife", "Day&Night",
-            "Morley", "Anneal"};
+            "Morley", "Anneal", "Custom"};
     ruleSetBor = new QString[RULE_SET_LENGTH]{"3", "1;3;5;7", "2", "2;5",
-            "3", "3,4", "3;5;6;7;8", "3;6",
+            "3", "3;4", "3;5;6;7;8", "3;6",
             "3;6", "3;6;7;8", "3;6;8", "4;6;7;8"};
     ruleSetSur = new QString[RULE_SET_LENGTH]{"2;3", "1;3;5;7", "", "4",
             "0;1;2;3;4;5;6;7;8", "3;4", "5;6;7;8", "1;2;5",
             "2;3", "3;4;6;7;8", "2;4;5", "3;5;6;7;8"};
-    for (int i = 0; i < RULE_SET_LENGTH; i++) {
+    for (int i = 0; i < RULE_SET_LENGTH + 1; i++) {
         ui->comboBox->addItem(ruleSetName[i]);
     }
+    this->onRuleChanged();
     connect(timer, SIGNAL(timeout()), ui->widget, SLOT(onTimerTimeout()));
     connect(ui->pushButton, SIGNAL(clicked(bool)), this, SLOT(onPushButtonClicked()));
     connect(ui->pushButtonClear, SIGNAL(clicked(bool)), ui->widget, SLOT(onClear()));
     connect(ui->pushButtonStep, SIGNAL(clicked(bool)), ui->widget, SLOT(onTimerTimeout()));
     connect(ui->pushButtonSave,SIGNAL(clicked(bool)), ui->widget, SLOT(onSave()));
     connect(ui->pushButtonLoad, SIGNAL(clicked(bool)), ui->widget, SLOT(onLoad()));
-    connect(ui->comboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(onRuleChanged()));
+    connect(ui->comboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(onComboboxChanged()));
+    connect(ui->lineEditSurvive, SIGNAL(textEdited(QString)), this, SLOT(onLineEditChanged()));
+    connect(ui->lineEditBorn, SIGNAL(textEdited(QString)), this, SLOT(onLineEditChanged()));
 }
 
 Widget::~Widget()
 {
     delete ui;
+}
+
+void Widget::onComboboxChanged() {
+    if (ui->comboBox->currentIndex() != ui->comboBox->count() - 1) {
+        ui->lineEditSurvive->setText(ruleSetSur[ui->comboBox->currentIndex()]);
+        ui->lineEditBorn->setText(ruleSetBor[ui->comboBox->currentIndex()]);
+    }
+    this->onRuleChanged();
 }
 
 void Widget::onPushButtonClicked() {
@@ -51,7 +62,6 @@ void Widget::onPushButtonClicked() {
         ui->lineEditSpeed->setEnabled(true);
     } else {
         timer->setInterval(ui->lineEditSpeed->text().toInt());
-        onRuleChanged();
         timer->start();
         ui->lineEditSurvive->setEnabled(false);
         ui->lineEditBorn->setEnabled(false);
@@ -61,54 +71,74 @@ void Widget::onPushButtonClicked() {
 }
 
 void Widget::onRuleChanged() {
-    ui->lineEditSurvive->setText(ruleSetSur[ui->comboBox->currentIndex()]);
-    ui->lineEditBorn->setText(ruleSetBor[ui->comboBox->currentIndex()]);
     ui->widget->setCanvasRule(ui->lineEditSurvive->text(),
                               ui->lineEditBorn->text());
     ui->labelShowRule->setText(ui->widget->ruleShow);
+}
+
+void Widget::onLineEditChanged() {
+    ui->comboBox->setCurrentIndex(ui->comboBox->count() - 1);
+    this->onRuleChanged();
 }
 
 // canvas
 
 void Canvas::initialize() {
     tile = new char*[width];
+    neighborTile = new char*[width];
+    newNeighborTile = new char*[width];
     for (int i = 0; i < width; i++) {
         tile[i] = new char[height];
-        for (int j = 0; j < height; j++)
+        neighborTile[i] = new char[height];
+        newNeighborTile[i] = new char[height];
+        for (int j = 0; j < height; j++) {
             tile[i][j] = 0;
+            neighborTile[i][j] = 0;
+            newNeighborTile[i][j] = 0;
+        }
     }
-    newTile = new char*[width];
-    for (int i = 0; i < width; i++) {
-        newTile[i] = new char[height];
-        for (int j = 0; j < height; j++)
-            newTile[i][j] = 0;
+}
+
+void Canvas::calNeighborTile() {
+    for (int i = 1; i < width - 1; i++) {
+        for (int j = 1; j < height - 1; j++) {
+            neighborTile[i][j] = tile[i - 1][j - 1] + tile[i][j - 1] + tile[i + 1][j - 1] +
+                    tile[i - 1][j] + tile[i + 1][j] +
+                    tile[i - 1][j + 1] + tile[i][j + 1] + tile[i + 1][j + 1];
+        }
     }
 }
 
 void Canvas::calculate() {
-    // make a copy of the original tile
-    for (int i = 0; i < width; i++) {
-        for (int j = 0; j < height; j++)
-            newTile[i][j] = tile[i][j];
-    }
-
     for (int i = 1; i < width - 1; i++) {
         for (int j = 1; j < height - 1; j++) {
-            int neighbor = tile[i - 1][j - 1] + tile[i][j - 1] + tile[i + 1][j - 1] +
-                    tile[i - 1][j] + tile[i + 1][j] +
-                    tile[i - 1][j + 1] + tile[i][j + 1] + tile[i + 1][j + 1];
-            if (tile[i][j] && !isSurvive(neighbor)) {
-                newTile[i][j] = 0;
-            } else if (!tile[i][j] && isBorn(neighbor)) {
-                newTile[i][j] = 1;
-            }
+            newNeighborTile[i][j] = neighborTile[i][j];
         }
     }
-
-    //copy new tile to tile
-    for (int i = 0; i < width; i++) {
-        for (int j = 0; j < height; j++)
-            tile[i][j] = newTile[i][j];
+    for (int i = 1; i < width - 1; i ++) {
+        for (int j = 1; j < height - 1; j ++) {
+            if (tile[i][j] && !isSurvive(newNeighborTile[i][j])) {
+                tile[i][j] = 0;
+                neighborTile[i - 1][j - 1]--;
+                neighborTile[i][j - 1]--;
+                neighborTile[i + 1][j - 1]--;
+                neighborTile[i- 1][j]--;
+                neighborTile[i + 1][j]--;
+                neighborTile[i - 1][j + 1]--;
+                neighborTile[i][j + 1]--;
+                neighborTile[i + 1][j + 1]--;
+            } else if (!tile[i][j] && isBorn(newNeighborTile[i][j])) {
+                tile[i][j] = 1;
+                neighborTile[i - 1][j - 1]++;
+                neighborTile[i][j - 1]++;
+                neighborTile[i + 1][j - 1]++;
+                neighborTile[i- 1][j]++;
+                neighborTile[i + 1][j]++;
+                neighborTile[i - 1][j + 1]++;
+                neighborTile[i][j + 1]++;
+                neighborTile[i + 1][j + 1]++;
+            }
+        }
     }
 }
 
@@ -119,14 +149,6 @@ void Canvas::set(int x, int y) {
 void Canvas::setRule(int *sur, int *bor) {
     rule.survive = sur;
     rule.born = bor;
-    qDebug() << "survive";
-    for (int i = 0; rule.survive[i] != -1; i++) {
-        qDebug() << rule.survive[i];
-    }
-    qDebug() << "born";
-    for (int i = 0; rule.born[i] != -1; i++) {
-        qDebug() << rule.born[i];
-    }
 }
 
 void Canvas::clear() {
@@ -161,6 +183,7 @@ void Canvas::load(QDataStream &in) {
             tile[i][j] = (char)temp;
         }
     }
+    this->calNeighborTile();
 }
 
 int* Canvas::findBoundary() {
@@ -210,25 +233,11 @@ int* Canvas::findBoundary() {
 }
 
 bool Canvas::isSurvive(int neighbor) {
-    bool flag = 0;
-    for (int i = 0; rule.survive[i] != -1; i++) {
-        if (neighbor == rule.survive[i]) {
-            flag = 1;
-            break;
-        }
-    }
-    return flag;
+    return rule.survive[neighbor];
 }
 
 bool Canvas::isBorn(int neighbor) {
-    bool flag = 0;
-    for (int i = 0; rule.born[i] != -1; i++) {
-        if (neighbor == rule.born[i]) {
-            flag = 1;
-            break;
-        }
-    }
-    return flag;
+    return rule.born[neighbor];
 }
 
 // mywidget
@@ -281,16 +290,17 @@ void MyWidget::paintEvent(QPaintEvent *event) {
 void MyWidget::setCanvasRule(const QString& surStr, const QString& borStr) {
     int* sur = new int[9];
     int* bor = new int[9];
+    for (int i = 0; i < 9; i ++) {
+        sur[i] = bor[i] = 0;
+    }
     QStringList surList = surStr.split(';');
     for (int i = 0; i < surList.size(); i++) {
-        sur[i] = surList.at(i).toInt();
+        sur[surList.at(i).toInt()] = 1;
     }
-    sur[surList.size()] = -1;
     QStringList borList = borStr.split(';');
     for (int i = 0; i < borList.size(); i++) {
-        bor[i] = borList.at(i).toInt();
+        bor[borList.at(i).toInt()] = 1;
     }
-    bor[borList.size()] = -1;
     canvas->setRule(sur, bor);
 
     // show rule in label
@@ -305,6 +315,7 @@ void MyWidget::mouseMoveEvent(QMouseEvent *event) {
     if (!canvas->get(mouseX / cellSide + startX, mouseY / cellSide + startY)) {
         canvas->set(mouseX / cellSide + startX, mouseY / cellSide + startY);
     }
+    canvas->calNeighborTile();
     update();
 }
 
@@ -312,6 +323,7 @@ void MyWidget::mousePressEvent(QMouseEvent *event) {
     int mouseX = event->x();
     int mouseY = event->y();
     canvas->set(mouseX / cellSide + startX, mouseY / cellSide + startY);
+    canvas->calNeighborTile();
     update();
 }
 

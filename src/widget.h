@@ -34,17 +34,18 @@ private:
 private slots:
     void onPushButtonClicked();
     void onRuleChanged();
+    void onLineEditChanged();
+    void onComboboxChanged();
 };
 
 class Canvas {
 public:
     Canvas(int w, int l):width(w), height(l) {
         initialize();
-        rule.survive = new int[9]{2, 3, -1};
-        rule.born = new int[9]{3, -1};
     }
     void initialize();
     void calculate();
+    void calNeighborTile();
     void set(int x, int y);
     char get(int x, int y) {
         return tile[x][y];
@@ -63,7 +64,9 @@ public:
 
 private:
     char** tile;
-    char** newTile;
+    //char** newTile;
+    char** neighborTile;
+    char** newNeighborTile;
     int width;
     int height;
     struct Rule {
