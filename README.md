@@ -1,6 +1,6 @@
 # Conway's game of life
 
-![Screenshot_1](screenshots/Screenshot_1.png]
+![Screenshot_1](screenshots/Screenshot_1.png)
 
 ## Proposing features
 
